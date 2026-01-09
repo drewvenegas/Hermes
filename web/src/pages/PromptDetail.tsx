@@ -4,12 +4,9 @@ import {
   ArrowLeft,
   Edit,
   Play,
-  History,
   Copy,
   Trash2,
-  ExternalLink,
   GitBranch,
-  TrendingUp,
 } from 'lucide-react';
 import { api } from '../services/api';
 

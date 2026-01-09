@@ -29,7 +29,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: api
-          image: ghcr.io/deepcreative/hermes:latest
+          image: ghcr.io/drewvenegas/hermes:latest
           imagePullPolicy: Always
           ports:
             - name: http

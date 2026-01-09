@@ -41,7 +41,7 @@ export default function PromptList() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [typeFilter] = useState<string>('');
 
   useEffect(() => {
     loadPrompts();

@@ -10,7 +10,7 @@ services:
       - "8080:8080"
       - "50051:50051"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://hermes:hermes@postgres:5432/hermes
+      - DATABASE_URL=postgresql+asyncpg://hermes:hermes@localhost:5433/hermes
       - REDIS_URL=redis://redis:6379/0
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - PERSONA_URL=https://persona.bravozero.ai
@@ -36,7 +36,7 @@ services:
       context: ./web
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - VITE_API_URL=http://localhost:8080
       - VITE_PERSONA_URL=https://persona.bravozero.ai
@@ -53,7 +53,7 @@ services:
       POSTGRES_PASSWORD: hermes
       POSTGRES_DB: hermes
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

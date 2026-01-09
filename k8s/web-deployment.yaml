@@ -24,7 +24,7 @@ spec:
         fsGroup: 101
       containers:
         - name: web
-          image: ghcr.io/deepcreative/hermes-web:latest
+          image: ghcr.io/drewvenegas/hermes-web:latest
           imagePullPolicy: Always
           ports:
             - name: http
