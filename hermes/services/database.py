@@ -6,6 +6,7 @@ Async database connection management.
 
 from typing import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from hermes.config import get_settings
@@ -30,14 +31,19 @@ async_session_maker = async_sessionmaker(
 
 
 async def init_db() -> None:
-    """Initialize database tables.
+    """Initialize database.
     
-    Uses checkfirst=True to avoid errors if tables already exist.
-    For production, use Alembic migrations instead.
+    In production, tables are managed by Alembic migrations.
+    This function just validates the connection works.
     """
-    async with engine.begin() as conn:
-        # checkfirst=True prevents errors if tables/indexes already exist
-        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True))
+    try:
+        async with engine.connect() as conn:
+            # Just test the connection
+            await conn.execute(text("SELECT 1"))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Database connection failed: {e}")
+        raise
 
 
 async def close_db() -> None:
