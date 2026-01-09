@@ -23,7 +23,7 @@ class VersionResponse(BaseModel):
     change_summary: Optional[str]
     author_id: uuid.UUID
     variables: Optional[dict[str, Any]]
-    metadata: Optional[dict[str, Any]]
+    version_metadata: Optional[dict[str, Any]]
     benchmark_results: Optional[dict[str, Any]]
     created_at: datetime
 

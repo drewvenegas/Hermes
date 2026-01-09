@@ -56,7 +56,7 @@ class PromptVersion(Base, UUIDMixin, TimestampMixin):
 
     # Metadata at version time
     variables: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    version_metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     # Benchmark snapshot
     benchmark_results: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)

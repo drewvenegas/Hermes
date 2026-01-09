@@ -23,7 +23,7 @@ class PromptBase(BaseModel):
     tags: Optional[list[str]] = None
     content: str = Field(..., min_length=1)
     variables: Optional[dict[str, Any]] = None
-    metadata: Optional[dict[str, Any]] = None
+    prompt_metadata: Optional[dict[str, Any]] = None
 
 
 class PromptCreate(PromptBase):
@@ -51,7 +51,7 @@ class PromptUpdate(BaseModel):
     tags: Optional[list[str]] = None
     content: Optional[str] = Field(None, min_length=1)
     variables: Optional[dict[str, Any]] = None
-    metadata: Optional[dict[str, Any]] = None
+    prompt_metadata: Optional[dict[str, Any]] = None
     status: Optional[PromptStatus] = None
     visibility: Optional[str] = Field(None, pattern=r"^(private|team|organization|public)$")
     app_scope: Optional[list[str]] = None
@@ -71,7 +71,7 @@ class PromptResponse(BaseModel):
     tags: Optional[list[str]]
     content: str
     variables: Optional[dict[str, Any]]
-    metadata: Optional[dict[str, Any]]
+    prompt_metadata: Optional[dict[str, Any]]
     version: str
     content_hash: str
     status: PromptStatus

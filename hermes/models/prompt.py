@@ -90,7 +90,7 @@ class Prompt(Base, UUIDMixin, TimestampMixin):
     # Content
     content: Mapped[str] = mapped_column(Text, nullable=False)
     variables: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    prompt_metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     # Versioning
     version: Mapped[str] = mapped_column(
