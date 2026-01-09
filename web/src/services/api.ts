@@ -176,6 +176,60 @@ export const api = {
     const { data } = await client.get(`/prompts/${promptId}/benchmarks`);
     return data;
   },
+
+  // Analytics
+  async getDashboard(): Promise<DashboardData> {
+    const { data } = await client.get('/analytics/dashboard');
+    return data;
+  },
+
+  async getUserStats(days = 30): Promise<UserStats> {
+    const { data } = await client.get('/analytics/user', { params: { days } });
+    return data;
+  },
+
+  // Generic get for flexibility
+  get(path: string, params?: Record<string, unknown>) {
+    return client.get(path, { params });
+  },
+
+  post(path: string, body?: unknown) {
+    return client.post(path, body);
+  },
 };
+
+// Analytics types
+export interface TimeSeriesPoint {
+  timestamp: string;
+  value: number;
+  label?: string;
+}
+
+export interface DashboardData {
+  total_prompts: number;
+  total_users: number;
+  total_benchmarks: number;
+  avg_benchmark_score: number;
+  prompts_this_week: number;
+  benchmarks_this_week: number;
+  top_prompts: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    benchmark_score?: number;
+  }>;
+  benchmark_trends: TimeSeriesPoint[];
+  activity_by_type: Record<string, number>;
+  model_usage: Record<string, number>;
+}
+
+export interface UserStats {
+  prompts_created: number;
+  benchmarks_run: number;
+  reviews_submitted: number;
+  comments_made: number;
+  activity_count: number;
+  period_days: number;
+}
 
 export default api;

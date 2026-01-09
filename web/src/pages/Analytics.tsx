@@ -1,39 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../services/api';
-
-interface TimeSeriesPoint {
-  timestamp: string;
-  value: number;
-  label?: string;
-}
-
-interface DashboardData {
-  total_prompts: number;
-  total_users: number;
-  total_benchmarks: number;
-  avg_benchmark_score: number;
-  prompts_this_week: number;
-  benchmarks_this_week: number;
-  top_prompts: Array<{
-    id: string;
-    slug: string;
-    name: string;
-    benchmark_score?: number;
-    usage_count?: number;
-  }>;
-  benchmark_trends: TimeSeriesPoint[];
-  activity_by_type: Record<string, number>;
-  model_usage: Record<string, number>;
-}
-
-interface UserStats {
-  prompts_created: number;
-  benchmarks_run: number;
-  reviews_submitted: number;
-  comments_made: number;
-  activity_count: number;
-  period_days: number;
-}
+import { api, DashboardData, UserStats, TimeSeriesPoint } from '../services/api';
 
 function StatCard({ title, value, subtitle, trend }: {
   title: string;
@@ -216,12 +182,12 @@ export default function Analytics() {
     async function fetchData() {
       try {
         setLoading(true);
-        const [dashboardRes, userStatsRes] = await Promise.all([
-          api.get('/analytics/dashboard'),
-          api.get('/analytics/user?days=30'),
+        const [dashboardData, userStatsData] = await Promise.all([
+          api.getDashboard(),
+          api.getUserStats(30),
         ]);
-        setDashboard(dashboardRes.data);
-        setUserStats(userStatsRes.data);
+        setDashboard(dashboardData);
+        setUserStats(userStatsData);
         setError(null);
       } catch (err) {
         console.error('Failed to fetch analytics:', err);

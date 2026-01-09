@@ -1,14 +1,5 @@
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: elasticsearch-pvc
-  namespace: hermes
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 20Gi
+# NOTE: Using Deployment with emptyDir for now due to EC2 volume attachment limits
+# For production, use StatefulSet with proper PVC
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -18,7 +9,7 @@ metadata:
 data:
   elasticsearch.yml: |
     cluster.name: hermes-search
-    node.name: ${HOSTNAME}
+    node.name: elasticsearch-0
     network.host: 0.0.0.0
     discovery.type: single-node
     xpack.security.enabled: false
@@ -26,14 +17,13 @@ data:
     indices.query.bool.max_clause_count: 4096
 ---
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: elasticsearch
   namespace: hermes
   labels:
     app: elasticsearch
 spec:
-  serviceName: elasticsearch
   replicas: 1
   selector:
     matchLabels:
@@ -48,15 +38,10 @@ spec:
           image: busybox
           command: ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
           securityContext:
-            privileged: true
+            runAsUser: 0
           volumeMounts:
             - name: data
               mountPath: /usr/share/elasticsearch/data
-        - name: increase-vm-max-map
-          image: busybox
-          command: ["sysctl", "-w", "vm.max_map_count=262144"]
-          securityContext:
-            privileged: true
       containers:
         - name: elasticsearch
           image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
@@ -101,14 +86,9 @@ spec:
         - name: config
           configMap:
             name: elasticsearch-config
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 20Gi
+        - name: data
+          emptyDir:
+            sizeLimit: 10Gi
 ---
 apiVersion: v1
 kind: Service
