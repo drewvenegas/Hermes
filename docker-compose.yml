@@ -1,0 +1,108 @@
+version: "3.9"
+
+services:
+  # Hermes API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://hermes:hermes@postgres:5432/hermes
+      - REDIS_URL=redis://redis:6379/0
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - PERSONA_URL=https://persona.bravozero.ai
+      - ATE_GRPC_URL=ate:50051
+      - ASRBS_GRPC_URL=asrbs:50051
+      - BEEPER_URL=https://beeper.bravozero.ai
+      - LOG_LEVEL=DEBUG
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./hermes:/app/hermes:ro
+    networks:
+      - hermes-net
+
+  # Hermes Web UI
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8080
+      - VITE_PERSONA_URL=https://persona.bravozero.ai
+    depends_on:
+      - api
+    networks:
+      - hermes-net
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes
+      POSTGRES_DB: hermes
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hermes"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hermes-net
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hermes-net
+
+  # Elasticsearch for Search
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - hermes-net
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+
+networks:
+  hermes-net:
+    driver: bridge

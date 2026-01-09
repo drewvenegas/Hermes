@@ -1,0 +1,126 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  CLUSTER_NAME: bravo-zero-cluster
+  CLUSTER_REGION: us-west-2
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.inputs.environment == 'staging'
+    environment: staging
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.CLUSTER_REGION }}
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.CLUSTER_REGION }}
+
+      - name: Deploy to staging
+        run: |
+          # Update image tags
+          kubectl set image deployment/hermes-api \
+            api=ghcr.io/${{ github.repository }}:${{ github.sha }} \
+            -n hermes
+          
+          kubectl set image deployment/hermes-web \
+            web=ghcr.io/${{ github.repository }}-web:${{ github.sha }} \
+            -n hermes
+          
+          # Wait for rollout
+          kubectl rollout status deployment/hermes-api -n hermes --timeout=300s
+          kubectl rollout status deployment/hermes-web -n hermes --timeout=300s
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n hermes
+          kubectl get svc -n hermes
+
+      - name: Run smoke tests
+        run: |
+          # Wait for service to be ready
+          sleep 30
+          
+          # Health check
+          curl -f https://hermes-staging.bravozero.ai/health || exit 1
+          
+          echo "Staging deployment successful!"
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.event.inputs.environment == 'production'
+    environment: production
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.CLUSTER_REGION }}
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.CLUSTER_REGION }}
+
+      - name: Deploy to production
+        run: |
+          # Update image tags
+          kubectl set image deployment/hermes-api \
+            api=ghcr.io/${{ github.repository }}:${{ github.sha }} \
+            -n hermes
+          
+          kubectl set image deployment/hermes-web \
+            web=ghcr.io/${{ github.repository }}-web:${{ github.sha }} \
+            -n hermes
+          
+          # Wait for rollout
+          kubectl rollout status deployment/hermes-api -n hermes --timeout=300s
+          kubectl rollout status deployment/hermes-web -n hermes --timeout=300s
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n hermes
+          
+          # Health check
+          curl -f https://hermes.bravozero.ai/health || exit 1
+          
+          echo "Production deployment successful!"
+
+      - name: Notify Beeper
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.BEEPER_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "title": "Hermes Deployed to Production",
+              "body": "Version ${{ github.sha }} deployed successfully",
+              "priority": "normal"
+            }'
