@@ -254,7 +254,7 @@ class Activity(Base, UUIDMixin, TimestampMixin):
     description: Mapped[str] = mapped_column(Text, nullable=False)
 
     # Metadata
-    metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    activity_metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     # Visibility
     is_public: Mapped[bool] = mapped_column(nullable=False, default=True)

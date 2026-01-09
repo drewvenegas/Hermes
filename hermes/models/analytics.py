@@ -60,7 +60,7 @@ class UsageMetric(Base, UUIDMixin, TimestampMixin):
     unit: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # count, ms, tokens, etc.
 
     # Metadata
-    metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    metric_metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     # Time buckets for aggregation
     hour: Mapped[int] = mapped_column(nullable=False)

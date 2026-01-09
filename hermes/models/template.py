@@ -112,7 +112,7 @@ class PromptTemplate(Base, UUIDMixin, TimestampMixin):
     usage_count: Mapped[int] = mapped_column(nullable=False, default=0)
 
     # Metadata
-    metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    template_metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     # Featured/curated
     is_curated: Mapped[bool] = mapped_column(nullable=False, default=False)
