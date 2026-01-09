@@ -6,8 +6,16 @@ metadata:
   labels:
     app.kubernetes.io/name: hermes
   annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # Use AWS Load Balancer Controller
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    # SSL/TLS Configuration
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:us-east-1:113513624033:certificate/5a10c11d-7556-4ba3-808f-114b8cbd951d"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
+    # Backend protocol
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
 spec:
   type: LoadBalancer
   ports:

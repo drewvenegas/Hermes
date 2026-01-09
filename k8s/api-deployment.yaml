@@ -29,7 +29,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: api
-          image: ghcr.io/drewvenegas/hermes:latest
+          image: 113513624033.dkr.ecr.us-east-1.amazonaws.com/hermes:latest
           imagePullPolicy: Always
           ports:
             - name: http

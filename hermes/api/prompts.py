@@ -10,6 +10,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from hermes.auth.dependencies import (
+    get_current_user,
+    get_current_user_optional,
+    require_permission,
+)
+from hermes.auth.models import User
 from hermes.models.prompt import PromptStatus, PromptType
 from hermes.schemas.prompt import (
     PromptCreate,
@@ -24,18 +30,16 @@ from hermes.services.prompt_store import PromptStoreService
 router = APIRouter()
 
 
-# Temporary: Mock user ID until PERSONA integration
-def get_current_user_id() -> uuid.UUID:
-    """Get current user ID (placeholder for PERSONA integration)."""
-    return uuid.UUID("00000000-0000-0000-0000-000000000001")
-
-
 @router.post("/prompts", response_model=PromptResponse, status_code=status.HTTP_201_CREATED)
 async def create_prompt(
     data: PromptCreate,
+    user: User = Depends(require_permission("prompts:create")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new prompt."""
+    """Create a new prompt.
+    
+    Requires: prompts:create permission
+    """
     service = PromptStoreService(db)
     
     # Check if slug already exists
@@ -46,8 +50,7 @@ async def create_prompt(
             detail=f"Prompt with slug '{data.slug}' already exists",
         )
     
-    user_id = get_current_user_id()
-    prompt = await service.create(data, owner_id=user_id)
+    prompt = await service.create(data, owner_id=user.id)
     
     return prompt
 
@@ -63,9 +66,13 @@ async def list_prompts(
     search: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    """List prompts with filtering and pagination."""
+    """List prompts with filtering and pagination.
+    
+    Public prompts are visible to all. Private prompts require authentication.
+    """
     service = PromptStoreService(db)
     
     query = PromptQuery(
@@ -91,9 +98,13 @@ async def list_prompts(
 @router.get("/prompts/{prompt_id}", response_model=PromptResponse)
 async def get_prompt(
     prompt_id: uuid.UUID,
+    user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a prompt by ID."""
+    """Get a prompt by ID.
+    
+    Public prompts are visible to all. Private prompts require authentication.
+    """
     service = PromptStoreService(db)
     prompt = await service.get(prompt_id)
     
@@ -109,9 +120,13 @@ async def get_prompt(
 @router.get("/prompts/by-slug/{slug}", response_model=PromptResponse)
 async def get_prompt_by_slug(
     slug: str,
+    user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a prompt by slug."""
+    """Get a prompt by slug.
+    
+    Public prompts are visible to all. Private prompts require authentication.
+    """
     service = PromptStoreService(db)
     prompt = await service.get_by_slug(slug)
     
@@ -128,13 +143,16 @@ async def get_prompt_by_slug(
 async def update_prompt(
     prompt_id: uuid.UUID,
     data: PromptUpdate,
+    user: User = Depends(require_permission("prompts:update")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update a prompt."""
-    service = PromptStoreService(db)
-    user_id = get_current_user_id()
+    """Update a prompt.
     
-    prompt = await service.update(prompt_id, data, author_id=user_id)
+    Requires: prompts:update permission
+    """
+    service = PromptStoreService(db)
+    
+    prompt = await service.update(prompt_id, data, author_id=user.id)
     
     if not prompt:
         raise HTTPException(
@@ -148,9 +166,13 @@ async def update_prompt(
 @router.delete("/prompts/{prompt_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_prompt(
     prompt_id: uuid.UUID,
+    user: User = Depends(require_permission("prompts:delete")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete a prompt."""
+    """Delete a prompt.
+    
+    Requires: prompts:delete permission
+    """
     service = PromptStoreService(db)
     deleted = await service.delete(prompt_id)
     

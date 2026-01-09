@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     # Application
     app_name: str = "Hermes"
     app_version: str = "0.1.0"
+    app_url: str = Field(
+        default="https://hermes.bravozero.ai",
+        description="Public URL of the application",
+    )
     debug: bool = False
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 

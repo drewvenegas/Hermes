@@ -34,6 +34,8 @@ dependencies = [
     "structlog>=24.1.0",
     "python-multipart>=0.0.6",
     "semver>=3.0.2",
+    "typer>=0.9.0",
+    "rich>=13.7.0",
 ]
 
 [project.optional-dependencies]
@@ -48,7 +50,8 @@ dev = [
 ]
 
 [project.scripts]
-hermes = "hermes.main:cli"
+hermes = "hermes.cli.main:main"
+hermes-server = "hermes.main:cli"
 
 [build-system]
 requires = ["hatchling"]

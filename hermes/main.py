@@ -15,6 +15,8 @@ from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram, make_asgi_app
 
 from hermes.api import benchmarks, health, prompts, versions
+from hermes.auth.oidc import router as auth_router
+from hermes.services.nursery_sync import sync_router as nursery_router
 from hermes.config import get_settings
 from hermes.services.database import init_db, close_db
 
@@ -145,10 +147,12 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # Include routers
+app.include_router(auth_router, tags=["Authentication"])
 app.include_router(health.router, tags=["Health"])
 app.include_router(prompts.router, prefix="/api/v1", tags=["Prompts"])
 app.include_router(versions.router, prefix="/api/v1", tags=["Versions"])
 app.include_router(benchmarks.router, prefix="/api/v1", tags=["Benchmarks"])
+app.include_router(nursery_router, tags=["Nursery Sync"])
 
 # Mount Prometheus metrics endpoint
 metrics_app = make_asgi_app()

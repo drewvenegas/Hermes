@@ -24,7 +24,7 @@ spec:
         fsGroup: 101
       containers:
         - name: web
-          image: ghcr.io/drewvenegas/hermes-web:latest
+          image: 113513624033.dkr.ecr.us-east-1.amazonaws.com/hermes-web:latest
           imagePullPolicy: Always
           ports:
             - name: http
