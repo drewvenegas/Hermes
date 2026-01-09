@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram, make_asgi_app
 
-from hermes.api import benchmarks, health, prompts, versions
+from hermes.api import analytics, benchmark_suites, benchmarks, collaboration, health, prompts, search, templates, versions
 from hermes.auth.oidc import router as auth_router
 from hermes.services.nursery_sync import sync_router as nursery_router
 from hermes.config import get_settings
@@ -152,6 +152,11 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(prompts.router, prefix="/api/v1", tags=["Prompts"])
 app.include_router(versions.router, prefix="/api/v1", tags=["Versions"])
 app.include_router(benchmarks.router, prefix="/api/v1", tags=["Benchmarks"])
+app.include_router(search.router, prefix="/api/v1", tags=["Search"])
+app.include_router(benchmark_suites.router, prefix="/api/v1", tags=["Benchmark Suites"])
+app.include_router(templates.router, prefix="/api/v1", tags=["Templates"])
+app.include_router(collaboration.router, prefix="/api/v1", tags=["Collaboration"])
+app.include_router(analytics.router, prefix="/api/v1", tags=["Analytics"])
 app.include_router(nursery_router, tags=["Nursery Sync"])
 
 # Mount Prometheus metrics endpoint

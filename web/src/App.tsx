@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
+import Analytics from './pages/Analytics';
 import Dashboard from './pages/Dashboard';
 import PromptList from './pages/PromptList';
 import PromptEditor from './pages/PromptEditor';
@@ -15,6 +16,7 @@ function App() {
         <Route path="prompts/new" element={<PromptEditor />} />
         <Route path="prompts/:id" element={<PromptDetail />} />
         <Route path="prompts/:id/edit" element={<PromptEditor />} />
+        <Route path="analytics" element={<Analytics />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>

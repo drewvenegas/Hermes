@@ -6,11 +6,13 @@ import {
   Zap,
   User,
   LogOut,
+  BarChart3,
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Prompts', href: '/prompts', icon: FileText },
+  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 

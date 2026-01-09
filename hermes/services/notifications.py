@@ -344,3 +344,111 @@ async def send_notification(notification: Notification) -> bool:
     """
     client = get_beeper_client()
     return await client.send(notification)
+
+
+class NotificationService:
+    """High-level notification service.
+    
+    Provides convenient methods for common notification types.
+    """
+    
+    def __init__(self):
+        self.client = get_beeper_client()
+    
+    async def send_benchmark_complete(
+        self,
+        prompt_slug: str,
+        prompt_name: str,
+        score: float,
+        previous_score: Optional[float] = None,
+        recommendations: Optional[List[str]] = None,
+    ) -> bool:
+        """Send benchmark completion notification."""
+        return await self.client.notify_benchmark_complete(
+            prompt_slug=prompt_slug,
+            prompt_name=prompt_name,
+            score=score,
+            previous_score=previous_score,
+            recommendations=recommendations,
+        )
+    
+    async def send_regression_alert(self, alert) -> bool:
+        """Send benchmark regression alert.
+        
+        Args:
+            alert: RegressionAlert object
+            
+        Returns:
+            True if sent successfully
+        """
+        severity_emoji = "🔴" if alert.severity == "critical" else "⚠️"
+        priority = (
+            NotificationPriority.URGENT 
+            if alert.severity == "critical" 
+            else NotificationPriority.HIGH
+        )
+        
+        notification = Notification(
+            type=NotificationType.BENCHMARK_REGRESSION,
+            title=f"{severity_emoji} Regression: {alert.prompt_name}",
+            message=(
+                f"Prompt `{alert.prompt_slug}` score dropped by {abs(alert.delta_percent):.1f}%\n"
+                f"Current: {alert.current_avg:.1f}% → Previous: {alert.previous_avg:.1f}%\n"
+                f"Model: {alert.model_id}, Suite: {alert.suite_id}"
+            ),
+            priority=priority,
+            data={
+                "prompt_id": str(alert.prompt_id),
+                "prompt_slug": alert.prompt_slug,
+                "current_avg": alert.current_avg,
+                "previous_avg": alert.previous_avg,
+                "delta": alert.delta,
+                "delta_percent": alert.delta_percent,
+                "severity": alert.severity,
+                "model_id": alert.model_id,
+                "suite_id": alert.suite_id,
+            },
+        )
+        
+        return await self.client.send(notification)
+    
+    async def send_deployment_notification(
+        self,
+        prompt_slug: str,
+        prompt_name: str,
+        version: str,
+        deployed_by: str,
+    ) -> bool:
+        """Send prompt deployment notification."""
+        return await self.client.notify_prompt_deployed(
+            prompt_slug=prompt_slug,
+            prompt_name=prompt_name,
+            version=version,
+            deployed_by=deployed_by,
+        )
+    
+    async def send_sync_notification(
+        self,
+        imported: int,
+        exported: int,
+        conflicts: int,
+    ) -> bool:
+        """Send nursery sync completion notification."""
+        return await self.client.notify_sync_complete(
+            imported=imported,
+            exported=exported,
+            conflicts=conflicts,
+        )
+    
+    async def send_error(
+        self,
+        title: str,
+        error_message: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Send error notification."""
+        return await self.client.notify_error(
+            title=title,
+            error_message=error_message,
+            context=context,
+        )

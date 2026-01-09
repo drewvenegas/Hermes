@@ -21,7 +21,11 @@ from hermes.schemas.benchmark import (
     BenchmarkListResponse,
     BenchmarkRequest,
     BenchmarkResponse,
+    ModelBenchmarkResult,
+    MultiModelBenchmarkRequest,
+    MultiModelBenchmarkResponse,
 )
+from hermes.services.benchmark_service import BenchmarkService, BenchmarkSuiteService
 from hermes.services.database import get_db
 
 router = APIRouter()
@@ -348,3 +352,139 @@ async def get_benchmark(
         )
     
     return benchmark
+
+
+# Multi-model benchmark comparison
+@router.post("/prompts/{prompt_id}/benchmark/compare", response_model=MultiModelBenchmarkResponse)
+async def compare_models(
+    prompt_id: uuid.UUID,
+    data: MultiModelBenchmarkRequest,
+    user: User = Depends(require_permission("benchmarks:run")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Compare benchmark results across multiple models.
+    
+    Requires: benchmarks:run permission
+    
+    Runs the same prompt against multiple D3N models and returns
+    a comparison matrix showing dimension scores for each model.
+    """
+    service = BenchmarkService(db)
+    
+    try:
+        result = await service.run_multi_model_benchmark(
+            prompt_id=prompt_id,
+            model_ids=data.model_ids,
+            suite_id=data.suite_id,
+            executed_by=user.id,
+            parallel=data.parallel,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    
+    return MultiModelBenchmarkResponse(
+        id=uuid.uuid4(),
+        prompt_id=result.prompt_id,
+        prompt_version=result.prompt_version,
+        suite_id=result.suite_id,
+        model_results=[
+            ModelBenchmarkResult(
+                model_id=r.model_id,
+                model_version=r.model_version,
+                overall_score=r.overall_score,
+                dimension_scores=r.dimension_scores,
+                execution_time_ms=r.execution_time_ms,
+                token_usage=r.token_usage,
+                gate_passed=r.gate_passed,
+            )
+            for r in result.model_results
+        ],
+        best_model=result.best_model,
+        best_score=result.best_score,
+        comparison_matrix=result.comparison_matrix,
+        executed_at=result.executed_at,
+        executed_by=user.id,
+        environment="staging",
+    )
+
+
+# Benchmark trends
+class TrendPointResponse(BaseModel):
+    """Single trend data point."""
+    timestamp: datetime
+    score: float
+    version: str
+    model_id: str
+
+
+class BenchmarkTrendsResponse(BaseModel):
+    """Benchmark trends analysis response."""
+    prompt_id: uuid.UUID
+    trend_data: list[TrendPointResponse]
+    rolling_avg_7d: Optional[float]
+    rolling_avg_30d: Optional[float]
+    score_delta_7d: Optional[float]
+    score_delta_30d: Optional[float]
+    is_regressing: bool
+    regression_alert: Optional[str]
+
+
+@router.get("/prompts/{prompt_id}/benchmark/trends", response_model=BenchmarkTrendsResponse)
+async def get_benchmark_trends(
+    prompt_id: uuid.UUID,
+    days: int = Query(30, ge=7, le=90),
+    user: User = Depends(require_permission("benchmarks:read")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get benchmark trends and regression analysis for a prompt.
+    
+    Requires: benchmarks:read permission
+    
+    Returns rolling averages, score deltas, and regression alerts.
+    """
+    service = BenchmarkService(db)
+    trends = await service.get_benchmark_trends(prompt_id, days=days)
+    
+    return BenchmarkTrendsResponse(
+        prompt_id=trends.prompt_id,
+        trend_data=[
+            TrendPointResponse(
+                timestamp=t.timestamp,
+                score=t.score,
+                version=t.version,
+                model_id=t.model_id,
+            )
+            for t in trends.trend_data
+        ],
+        rolling_avg_7d=trends.rolling_avg_7d,
+        rolling_avg_30d=trends.rolling_avg_30d,
+        score_delta_7d=trends.score_delta_7d,
+        score_delta_30d=trends.score_delta_30d,
+        is_regressing=trends.is_regressing,
+        regression_alert=trends.regression_alert,
+    )
+
+
+class RegressionAlert(BaseModel):
+    """Regression alert for a prompt."""
+    prompt_id: str
+    alert: str
+    rolling_avg_7d: Optional[float]
+    score_delta_7d: Optional[float]
+
+
+@router.get("/benchmarks/alerts/regressions", response_model=list[RegressionAlert])
+async def get_regression_alerts(
+    user: User = Depends(require_permission("benchmarks:read")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all active benchmark regression alerts.
+    
+    Requires: benchmarks:read permission
+    
+    Returns prompts with sustained score regressions over the last 7 days.
+    """
+    service = BenchmarkService(db)
+    alerts = await service.check_regression_alerts()
+    
+    return [RegressionAlert(**a) for a in alerts]
