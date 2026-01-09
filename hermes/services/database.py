@@ -30,9 +30,14 @@ async_session_maker = async_sessionmaker(
 
 
 async def init_db() -> None:
-    """Initialize database tables."""
+    """Initialize database tables.
+    
+    Uses checkfirst=True to avoid errors if tables already exist.
+    For production, use Alembic migrations instead.
+    """
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        # checkfirst=True prevents errors if tables/indexes already exist
+        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True))
 
 
 async def close_db() -> None:
