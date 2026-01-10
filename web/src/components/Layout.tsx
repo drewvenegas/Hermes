@@ -20,15 +20,17 @@ export default function Layout() {
   const location = useLocation();
 
   return (
-    <div className="flex h-screen">
-      {/* Sidebar */}
-      <aside className="w-64 bg-bravo-secondary border-r border-slate-700 flex flex-col">
+    <div className="flex h-screen bg-bravo-bg">
+      {/* Sidebar - Warm Dark Theme */}
+      <aside className="w-64 bg-bravo-surface border-r border-bravo-border flex flex-col">
         {/* Logo */}
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-slate-700">
-          <div className="w-8 h-8 rounded-lg gradient-sunset flex items-center justify-center">
+        <div className="h-16 flex items-center gap-3 px-6 border-b border-bravo-border">
+          <div className="w-8 h-8 rounded-lg bg-gradient-sunset flex items-center justify-center shadow-sunset">
             <Zap className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-semibold gradient-text">Hermes</span>
+          <span className="text-xl font-semibold bg-gradient-to-r from-sunset-400 to-sunset-600 bg-clip-text text-transparent">
+            Hermes
+          </span>
         </div>
 
         {/* Navigation */}
@@ -40,38 +42,38 @@ export default function Layout() {
               <Link
                 key={item.name}
                 to={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                   isActive
-                    ? 'bg-sunset-500/20 text-sunset-400'
-                    : 'text-slate-400 hover:bg-slate-700 hover:text-white'
+                    ? 'bg-sunset-500/15 text-sunset-400 border border-sunset-800/50'
+                    : 'text-bravo-muted hover:bg-bravo-elevated hover:text-bravo-text border border-transparent'
                 }`}
               >
-                <item.icon className="w-5 h-5" />
-                <span>{item.name}</span>
+                <item.icon className={`w-5 h-5 ${isActive ? 'text-sunset-500' : ''}`} />
+                <span className="font-medium">{item.name}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* User */}
-        <div className="p-4 border-t border-slate-700">
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-800">
-            <div className="w-8 h-8 rounded-full bg-sunset-500 flex items-center justify-center">
+        {/* User Section */}
+        <div className="p-4 border-t border-bravo-border">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-bravo-elevated border border-bravo-border-subtle">
+            <div className="w-8 h-8 rounded-full bg-gradient-sunset flex items-center justify-center shadow-sunset">
               <User className="w-4 h-4 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">Developer</p>
-              <p className="text-xs text-slate-400 truncate">Bravo Zero</p>
+              <p className="text-sm font-medium truncate text-bravo-text">Developer</p>
+              <p className="text-xs text-bravo-muted truncate">Bravo Zero</p>
             </div>
-            <button className="text-slate-400 hover:text-white">
+            <button className="text-bravo-muted hover:text-sunset-400 transition-colors">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-auto">
+      {/* Main content area */}
+      <main className="flex-1 overflow-auto bg-bravo-bg">
         <Outlet />
       </main>
     </div>
