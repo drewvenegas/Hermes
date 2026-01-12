@@ -55,7 +55,8 @@ class NurserySyncService:
     """
     
     NURSERY_BASE_PATH = "Nursery"
-    AGENT_TYPES = ["core", "subsystems", "specialists", "ephemeral"]
+    # Must match actual directories in ARIA/Nursery/
+    AGENT_TYPES = ["executive", "orchestration", "specialists", "subsystems"]
     
     def __init__(
         self,
