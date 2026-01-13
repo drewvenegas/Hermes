@@ -396,6 +396,60 @@ def benchmark(
 
 
 @app.command()
+def sync(
+    overwrite: bool = typer.Option(False, "--overwrite", "-o", help="Overwrite existing prompts"),
+    status_only: bool = typer.Option(False, "--status", "-s", help="Show sync status only"),
+):
+    """Sync prompts from ARIA Nursery."""
+    with get_client() as client:
+        try:
+            if status_only:
+                response = client.get("/api/v1/sync/nursery/status")
+                response.raise_for_status()
+                status = response.json()
+                
+                console.print("\n[bold]Nursery Sync Status[/bold]\n")
+                console.print(f"  Nursery prompts: {status.get('nursery_count', 0)}")
+                console.print(f"  [green]Synced:[/green] {status.get('synced', 0)}")
+                console.print(f"  [yellow]Pending import:[/yellow] {status.get('pending_import', 0)}")
+                console.print(f"  [red]Conflicts:[/red] {status.get('conflicts', 0)}")
+                return
+            
+            console.print("[bold blue]Importing from ARIA Nursery...[/bold blue]")
+            
+            response = client.post(
+                "/api/v1/sync/nursery/import",
+                params={"overwrite": overwrite},
+            )
+            response.raise_for_status()
+            result = response.json()
+            
+            console.print(f"\n[green]✓ Import completed[/green]")
+            console.print(f"  Imported: {result.get('imported', 0)}")
+            console.print(f"  Conflicts: {result.get('conflicts', 0)}")
+            
+            if result.get('errors'):
+                console.print(f"\n[red]Errors:[/red]")
+                for err in result['errors']:
+                    console.print(f"  - {err}")
+            
+            if result.get('details'):
+                console.print(f"\n[dim]Details:[/dim]")
+                for detail in result['details'][:10]:  # Show first 10
+                    action = detail.get('action', 'unknown')
+                    slug = detail.get('slug', '')
+                    color = "green" if action == "created" else "yellow" if action == "updated" else "red"
+                    console.print(f"  [{color}]{action}[/{color}] {slug}")
+                
+                if len(result['details']) > 10:
+                    console.print(f"  ... and {len(result['details']) - 10} more")
+            
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)
+
+
+@app.command()
 def config(
     hermes_url: Optional[str] = typer.Option(None, "--hermes-url", help="Set Hermes URL"),
     persona_url: Optional[str] = typer.Option(None, "--persona-url", help="Set PERSONA URL"),
