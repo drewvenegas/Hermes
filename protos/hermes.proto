@@ -1,0 +1,544 @@
+// Hermes gRPC API
+// Prompt Engineering Platform for Bravo Zero Ecosystem
+
+syntax = "proto3";
+
+package hermes.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option python_package = "hermes.grpc.generated";
+
+// =============================================================================
+// Core Services
+// =============================================================================
+
+// PromptService - Core prompt CRUD operations
+service PromptService {
+  // Create a new prompt
+  rpc CreatePrompt(CreatePromptRequest) returns (Prompt);
+  
+  // Get a prompt by ID
+  rpc GetPrompt(GetPromptRequest) returns (Prompt);
+  
+  // Get a prompt by slug
+  rpc GetPromptBySlug(GetPromptBySlugRequest) returns (Prompt);
+  
+  // Update a prompt (creates new version)
+  rpc UpdatePrompt(UpdatePromptRequest) returns (Prompt);
+  
+  // Delete a prompt
+  rpc DeletePrompt(DeletePromptRequest) returns (google.protobuf.Empty);
+  
+  // List prompts with filtering
+  rpc ListPrompts(ListPromptsRequest) returns (ListPromptsResponse);
+  
+  // Search prompts
+  rpc SearchPrompts(SearchPromptsRequest) returns (SearchPromptsResponse);
+}
+
+// VersionService - Version control operations
+service VersionService {
+  // Get version history for a prompt
+  rpc GetVersionHistory(GetVersionHistoryRequest) returns (GetVersionHistoryResponse);
+  
+  // Get a specific version
+  rpc GetVersion(GetVersionRequest) returns (PromptVersion);
+  
+  // Compare two versions
+  rpc DiffVersions(DiffVersionsRequest) returns (DiffVersionsResponse);
+  
+  // Rollback to a previous version
+  rpc RollbackVersion(RollbackVersionRequest) returns (Prompt);
+  
+  // Create a branch
+  rpc CreateBranch(CreateBranchRequest) returns (Prompt);
+  
+  // Merge branches
+  rpc MergeBranches(MergeBranchesRequest) returns (Prompt);
+}
+
+// BenchmarkService - Benchmarking operations
+service BenchmarkService {
+  // Run a benchmark on a prompt
+  rpc RunBenchmark(RunBenchmarkRequest) returns (BenchmarkResult);
+  
+  // Run self-critique via ASRBS
+  rpc RunSelfCritique(RunSelfCritiqueRequest) returns (SelfCritiqueResult);
+  
+  // Get benchmark results for a prompt
+  rpc GetBenchmarkResults(GetBenchmarkResultsRequest) returns (GetBenchmarkResultsResponse);
+  
+  // Get benchmark trends
+  rpc GetBenchmarkTrends(GetBenchmarkTrendsRequest) returns (BenchmarkTrends);
+  
+  // Compare prompts on benchmarks
+  rpc ComparePrompts(ComparePromptsRequest) returns (ComparePromptsResponse);
+  
+  // Apply improvement suggestion
+  rpc ApplySuggestion(ApplySuggestionRequest) returns (Prompt);
+}
+
+// DeploymentService - Multi-app deployment operations
+service DeploymentService {
+  // Deploy a prompt to applications
+  rpc DeployPrompt(DeployPromptRequest) returns (DeploymentStatus);
+  
+  // Get deployment status
+  rpc GetDeploymentStatus(GetDeploymentStatusRequest) returns (DeploymentStatus);
+  
+  // Rollback a deployment
+  rpc RollbackDeployment(RollbackDeploymentRequest) returns (DeploymentStatus);
+  
+  // List deployments
+  rpc ListDeployments(ListDeploymentsRequest) returns (ListDeploymentsResponse);
+}
+
+// NurseryService - ARIA Nursery sync operations
+service NurseryService {
+  // Sync agent prompts from Nursery
+  rpc SyncFromNursery(SyncFromNurseryRequest) returns (SyncResult);
+  
+  // Export prompts to Nursery
+  rpc SyncToNursery(SyncToNurseryRequest) returns (SyncResult);
+  
+  // Get sync status
+  rpc GetSyncStatus(GetSyncStatusRequest) returns (SyncStatus);
+  
+  // Resolve sync conflict
+  rpc ResolveConflict(ResolveConflictRequest) returns (Prompt);
+}
+
+// =============================================================================
+// Messages - Prompts
+// =============================================================================
+
+// Prompt type enumeration
+enum PromptType {
+  PROMPT_TYPE_UNSPECIFIED = 0;
+  PROMPT_TYPE_AGENT_SYSTEM = 1;
+  PROMPT_TYPE_USER_TEMPLATE = 2;
+  PROMPT_TYPE_TOOL_DEFINITION = 3;
+  PROMPT_TYPE_MCP_INSTRUCTION = 4;
+}
+
+// Prompt status enumeration
+enum PromptStatus {
+  PROMPT_STATUS_UNSPECIFIED = 0;
+  PROMPT_STATUS_DRAFT = 1;
+  PROMPT_STATUS_REVIEW = 2;
+  PROMPT_STATUS_STAGED = 3;
+  PROMPT_STATUS_DEPLOYED = 4;
+  PROMPT_STATUS_ARCHIVED = 5;
+}
+
+// Visibility level
+enum Visibility {
+  VISIBILITY_UNSPECIFIED = 0;
+  VISIBILITY_PRIVATE = 1;
+  VISIBILITY_TEAM = 2;
+  VISIBILITY_ORGANIZATION = 3;
+  VISIBILITY_PUBLIC = 4;
+}
+
+// Core prompt message
+message Prompt {
+  string id = 1;
+  string slug = 2;
+  string name = 3;
+  string description = 4;
+  PromptType type = 5;
+  string category = 6;
+  string content = 7;
+  map<string, string> variables = 8;
+  map<string, string> metadata = 9;
+  
+  // Versioning
+  string version = 10;
+  string parent_id = 11;
+  bool is_latest = 12;
+  string content_hash = 13;
+  
+  // Ownership
+  string owner_id = 14;
+  string owner_type = 15;
+  string team_id = 16;
+  
+  // Access control
+  Visibility visibility = 17;
+  repeated string app_scope = 18;
+  repeated string repo_scope = 19;
+  
+  // Benchmarking
+  string benchmark_suite = 20;
+  google.protobuf.Timestamp last_benchmark_at = 21;
+  float benchmark_score = 22;
+  
+  // Lifecycle
+  PromptStatus status = 23;
+  google.protobuf.Timestamp deployed_at = 24;
+  google.protobuf.Timestamp created_at = 25;
+  google.protobuf.Timestamp updated_at = 26;
+}
+
+message CreatePromptRequest {
+  string name = 1;
+  string slug = 2;
+  string description = 3;
+  PromptType type = 4;
+  string category = 5;
+  string content = 6;
+  map<string, string> variables = 7;
+  map<string, string> metadata = 8;
+  Visibility visibility = 9;
+  repeated string app_scope = 10;
+  string team_id = 11;
+}
+
+message GetPromptRequest {
+  string id = 1;
+  string version = 2;  // Optional - defaults to latest
+}
+
+message GetPromptBySlugRequest {
+  string slug = 1;
+  string app = 2;  // Optional - for app-scoped resolution
+}
+
+message UpdatePromptRequest {
+  string id = 1;
+  string content = 2;
+  string change_summary = 3;
+  optional string name = 4;
+  optional string description = 5;
+  map<string, string> variables = 6;
+  map<string, string> metadata = 7;
+}
+
+message DeletePromptRequest {
+  string id = 1;
+  bool hard_delete = 2;  // True for permanent delete, false for archive
+}
+
+message ListPromptsRequest {
+  PromptType type = 1;
+  PromptStatus status = 2;
+  string category = 3;
+  string team_id = 4;
+  string owner_id = 5;
+  int32 limit = 6;
+  int32 offset = 7;
+  string order_by = 8;
+}
+
+message ListPromptsResponse {
+  repeated Prompt prompts = 1;
+  int32 total = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message SearchPromptsRequest {
+  string query = 1;
+  PromptType type = 2;
+  string category = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message SearchPromptsResponse {
+  repeated PromptSearchResult results = 1;
+  int32 total = 2;
+}
+
+message PromptSearchResult {
+  Prompt prompt = 1;
+  float score = 2;
+  repeated string highlights = 3;
+}
+
+// =============================================================================
+// Messages - Versions
+// =============================================================================
+
+message PromptVersion {
+  string id = 1;
+  string prompt_id = 2;
+  string version = 3;
+  string content_hash = 4;
+  string content = 5;
+  string diff = 6;
+  string change_summary = 7;
+  string author_id = 8;
+  google.protobuf.Timestamp created_at = 9;
+  BenchmarkResult benchmark_results = 10;
+}
+
+message GetVersionHistoryRequest {
+  string prompt_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message GetVersionHistoryResponse {
+  repeated PromptVersion versions = 1;
+  int32 total = 2;
+}
+
+message GetVersionRequest {
+  string prompt_id = 1;
+  string version = 2;
+}
+
+message DiffVersionsRequest {
+  string prompt_id = 1;
+  string from_version = 2;
+  string to_version = 3;
+}
+
+message DiffVersionsResponse {
+  string from_version = 1;
+  string to_version = 2;
+  string diff = 3;
+  repeated DiffChunk chunks = 4;
+}
+
+message DiffChunk {
+  string type = 1;  // add, remove, context
+  int32 old_start = 2;
+  int32 old_lines = 3;
+  int32 new_start = 4;
+  int32 new_lines = 5;
+  repeated string lines = 6;
+}
+
+message RollbackVersionRequest {
+  string prompt_id = 1;
+  string to_version = 2;
+  string reason = 3;
+}
+
+message CreateBranchRequest {
+  string prompt_id = 1;
+  string branch_name = 2;
+}
+
+message MergeBranchesRequest {
+  string source_id = 1;
+  string target_id = 2;
+  string strategy = 3;  // theirs, ours, manual
+}
+
+// =============================================================================
+// Messages - Benchmarks
+// =============================================================================
+
+message RunBenchmarkRequest {
+  string prompt_id = 1;
+  string suite_id = 2;
+  string model_id = 3;
+  bool notify = 4;
+}
+
+message BenchmarkResult {
+  string id = 1;
+  string prompt_id = 2;
+  string prompt_version = 3;
+  string suite_id = 4;
+  
+  float overall_score = 5;
+  map<string, float> dimension_scores = 6;
+  
+  string model_id = 7;
+  string model_version = 8;
+  int32 execution_time_ms = 9;
+  TokenUsage token_usage = 10;
+  
+  float baseline_score = 11;
+  float delta = 12;
+  bool gate_passed = 13;
+  
+  google.protobuf.Timestamp executed_at = 14;
+  string executed_by = 15;
+  string environment = 16;
+}
+
+message TokenUsage {
+  int32 input_tokens = 1;
+  int32 output_tokens = 2;
+  int32 total_tokens = 3;
+}
+
+message RunSelfCritiqueRequest {
+  string prompt_id = 1;
+}
+
+message SelfCritiqueResult {
+  string overall_assessment = 1;
+  float quality_score = 2;
+  repeated ImprovementSuggestion suggestions = 3;
+  repeated string knowledge_gaps = 4;
+  repeated string overconfidence_areas = 5;
+  repeated string training_data_needs = 6;
+}
+
+message ImprovementSuggestion {
+  string id = 1;
+  string category = 2;
+  string severity = 3;
+  string description = 4;
+  string suggested_change = 5;
+  float confidence = 6;
+}
+
+message GetBenchmarkResultsRequest {
+  string prompt_id = 1;
+  int32 limit = 2;
+}
+
+message GetBenchmarkResultsResponse {
+  repeated BenchmarkResult results = 1;
+  int32 total = 2;
+}
+
+message GetBenchmarkTrendsRequest {
+  string prompt_id = 1;
+  int32 days = 2;
+}
+
+message BenchmarkTrends {
+  string trend = 1;  // improving, declining, stable, neutral
+  float change = 2;
+  float current_score = 3;
+  repeated TrendPoint history = 4;
+}
+
+message TrendPoint {
+  google.protobuf.Timestamp date = 1;
+  float score = 2;
+  string version = 3;
+}
+
+message ComparePromptsRequest {
+  repeated string prompt_ids = 1;
+  string suite_id = 2;
+}
+
+message ComparePromptsResponse {
+  repeated PromptComparison comparisons = 1;
+}
+
+message PromptComparison {
+  string prompt_id = 1;
+  string prompt_name = 2;
+  float score = 3;
+  map<string, float> dimension_scores = 4;
+}
+
+message ApplySuggestionRequest {
+  string prompt_id = 1;
+  string suggestion_id = 2;
+}
+
+// =============================================================================
+// Messages - Deployment
+// =============================================================================
+
+message DeployPromptRequest {
+  string prompt_id = 1;
+  string version = 2;
+  repeated string target_apps = 3;
+  string strategy = 4;  // immediate, rolling, canary
+  float canary_percentage = 5;
+}
+
+message DeploymentStatus {
+  string id = 1;
+  string prompt_id = 2;
+  string version = 3;
+  string status = 4;  // pending, in_progress, completed, failed, rolled_back
+  repeated AppDeployment app_deployments = 5;
+  google.protobuf.Timestamp started_at = 6;
+  google.protobuf.Timestamp completed_at = 7;
+  string error_message = 8;
+}
+
+message AppDeployment {
+  string app_id = 1;
+  string status = 2;
+  string previous_version = 3;
+  string current_version = 4;
+  google.protobuf.Timestamp deployed_at = 5;
+}
+
+message GetDeploymentStatusRequest {
+  string deployment_id = 1;
+}
+
+message RollbackDeploymentRequest {
+  string deployment_id = 1;
+  string reason = 2;
+}
+
+message ListDeploymentsRequest {
+  string prompt_id = 1;
+  string app_id = 2;
+  string status = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message ListDeploymentsResponse {
+  repeated DeploymentStatus deployments = 1;
+  int32 total = 2;
+}
+
+// =============================================================================
+// Messages - Nursery Sync
+// =============================================================================
+
+message SyncFromNurseryRequest {
+  repeated string agent_ids = 1;  // Empty for all
+  bool force = 2;
+}
+
+message SyncToNurseryRequest {
+  repeated string prompt_ids = 1;
+  string commit_message = 2;
+}
+
+message SyncResult {
+  int32 imported = 1;
+  int32 updated = 2;
+  int32 skipped = 3;
+  int32 failed = 4;
+  repeated string errors = 5;
+  repeated SyncConflict conflicts = 6;
+}
+
+message SyncConflict {
+  string prompt_id = 1;
+  string nursery_path = 2;
+  string local_version = 3;
+  string nursery_version = 4;
+  string conflict_type = 5;
+}
+
+message GetSyncStatusRequest {
+  // Empty - returns overall status
+}
+
+message SyncStatus {
+  google.protobuf.Timestamp last_sync_at = 1;
+  string sync_state = 2;  // synced, pending, conflict
+  int32 pending_changes = 3;
+  int32 conflicts = 4;
+  repeated SyncConflict conflict_details = 5;
+}
+
+message ResolveConflictRequest {
+  string prompt_id = 1;
+  string resolution = 2;  // local, nursery, merged
+  string merged_content = 3;  // Only for merged resolution
+}

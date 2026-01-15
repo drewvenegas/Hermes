@@ -14,9 +14,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram, make_asgi_app
 
-from hermes.api import analytics, benchmark_suites, benchmarks, collaboration, health, prompts, search, templates, versions
+from hermes.api import agent, analytics, api_keys, audit, benchmark_suites, benchmarks, collaboration, experiments, health, import_export, prompts, quality_gates, search, templates, versions
 from hermes.auth.oidc import router as auth_router
 from hermes.services.nursery_sync import sync_router as nursery_router
+from hermes.middleware.audit import RequestIDMiddleware
 from hermes.config import get_settings
 from hermes.services.database import init_db, close_db
 
@@ -56,18 +57,41 @@ REQUEST_LATENCY = Histogram(
 settings = get_settings()
 
 
+# gRPC server instance (module-level for lifespan management)
+_grpc_server = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager."""
+    global _grpc_server
+    
     # Startup
     logger.info("Starting Hermes API", version=settings.app_version)
     await init_db()
     logger.info("Database initialized")
     
+    # Start gRPC server if enabled
+    if settings.grpc_enabled:
+        try:
+            from hermes.grpc.server import create_grpc_server
+            _grpc_server = create_grpc_server()
+            await _grpc_server.start()
+            logger.info("gRPC server started", port=settings.grpc_port)
+        except Exception as e:
+            logger.warning("Failed to start gRPC server", error=str(e))
+            _grpc_server = None
+    
     yield
     
     # Shutdown
     logger.info("Shutting down Hermes API")
+    
+    # Stop gRPC server
+    if _grpc_server:
+        await _grpc_server.stop()
+        logger.info("gRPC server stopped")
+    
     await close_db()
     logger.info("Database connections closed")
 
@@ -91,6 +115,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request ID middleware
+app.add_middleware(RequestIDMiddleware)
 
 
 # Request logging and metrics middleware
@@ -157,6 +184,12 @@ app.include_router(benchmark_suites.router, prefix="/api/v1", tags=["Benchmark S
 app.include_router(templates.router, prefix="/api/v1", tags=["Templates"])
 app.include_router(collaboration.router, prefix="/api/v1", tags=["Collaboration"])
 app.include_router(analytics.router, prefix="/api/v1", tags=["Analytics"])
+app.include_router(quality_gates.router, prefix="/api/v1", tags=["Quality Gates"])
+app.include_router(experiments.router, prefix="/api/v1", tags=["Experiments"])
+app.include_router(agent.router, prefix="/api/v1", tags=["Agent"])
+app.include_router(api_keys.router, prefix="/api/v1", tags=["API Keys"])
+app.include_router(audit.router, prefix="/api/v1", tags=["Audit Logs"])
+app.include_router(import_export.router, prefix="/api/v1", tags=["Import/Export"])
 app.include_router(nursery_router, tags=["Nursery Sync"])
 
 # Mount Prometheus metrics endpoint

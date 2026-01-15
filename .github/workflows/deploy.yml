@@ -1,12 +1,27 @@
-name: Deploy
+# Hermes CI/CD Pipeline
+# Builds, tests, and deploys to AWS ECS
+
+name: Deploy Hermes
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - staging
+    paths:
+      - 'hermes/**'
+      - 'protos/**'
+      - 'tests/**'
+      - 'Dockerfile'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    branches:
+      - main
+      - staging
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Deployment environment'
+        description: 'Environment to deploy to'
         required: true
         default: 'staging'
         type: choice
@@ -15,112 +30,392 @@ on:
           - production
 
 env:
-  CLUSTER_NAME: bravo-zero-cluster
-  CLUSTER_REGION: us-west-2
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: hermes
+  PYTHON_VERSION: '3.11'
 
 jobs:
+  # ==========================================================================
+  # Lint and Type Check
+  # ==========================================================================
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+          pip install ruff mypy
+      
+      - name: Run ruff
+        run: ruff check hermes/ tests/
+      
+      - name: Run mypy
+        run: mypy hermes/ --ignore-missing-imports
+
+  # ==========================================================================
+  # Unit Tests
+  # ==========================================================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: hermes
+          POSTGRES_PASSWORD: hermes
+          POSTGRES_DB: hermes_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: pip install -e ".[dev,test]"
+      
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://hermes:hermes@localhost:5432/hermes_test
+          REDIS_URL: redis://localhost:6379
+          ENVIRONMENT: test
+        run: |
+          pytest tests/unit/ -v --cov=hermes --cov-report=xml --cov-report=html
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+  # ==========================================================================
+  # Integration Tests
+  # ==========================================================================
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: hermes
+          POSTGRES_PASSWORD: hermes
+          POSTGRES_DB: hermes_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: pip install -e ".[dev,test]"
+      
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://hermes:hermes@localhost:5432/hermes_test
+        run: alembic upgrade head
+      
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql://hermes:hermes@localhost:5432/hermes_test
+          REDIS_URL: redis://localhost:6379
+          ENVIRONMENT: test
+        run: pytest tests/integration/ -v
+
+  # ==========================================================================
+  # Build Docker Image
+  # ==========================================================================
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    if: github.event_name != 'pull_request'
+    
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ==========================================================================
+  # Deploy to Staging
+  # ==========================================================================
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event.inputs.environment == 'staging'
-    environment: staging
+    needs: [integration, build]
+    if: github.ref == 'refs/heads/staging' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: https://hermes-staging.bravo-zero.io
     
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.CLUSTER_REGION }}
-
-      - name: Configure kubectl
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.6.0'
+      
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+      
+      - name: Terraform Apply
+        working-directory: terraform
         run: |
-          aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.CLUSTER_REGION }}
-
-      - name: Deploy to staging
+          terraform apply -auto-approve \
+            -var-file=environments/staging.tfvars \
+            -var="image_tag=${{ github.sha }}"
+      
+      - name: Run Database Migrations
         run: |
-          # Update image tags
-          kubectl set image deployment/hermes-api \
-            api=ghcr.io/${{ github.repository }}:${{ github.sha }} \
-            -n hermes
-          
-          kubectl set image deployment/hermes-web \
-            web=ghcr.io/${{ github.repository }}-web:${{ github.sha }} \
-            -n hermes
-          
-          # Wait for rollout
-          kubectl rollout status deployment/hermes-api -n hermes --timeout=300s
-          kubectl rollout status deployment/hermes-web -n hermes --timeout=300s
-
-      - name: Verify deployment
+          aws ecs run-task \
+            --cluster hermes-staging-cluster \
+            --task-definition hermes-staging-api \
+            --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx],securityGroups=[sg-xxx]}" \
+            --overrides '{"containerOverrides":[{"name":"api","command":["alembic","upgrade","head"]}]}'
+      
+      - name: Deploy ECS Services
         run: |
-          kubectl get pods -n hermes
-          kubectl get svc -n hermes
-
-      - name: Run smoke tests
+          aws ecs update-service --cluster hermes-staging-cluster --service hermes-staging-api --force-new-deployment
+          aws ecs update-service --cluster hermes-staging-cluster --service hermes-staging-grpc --force-new-deployment
+          aws ecs update-service --cluster hermes-staging-cluster --service hermes-staging-agent --force-new-deployment
+      
+      - name: Wait for Deployment
         run: |
-          # Wait for service to be ready
-          sleep 30
-          
-          # Health check
-          curl -f https://hermes-staging.bravozero.ai/health || exit 1
-          
-          echo "Staging deployment successful!"
+          aws ecs wait services-stable --cluster hermes-staging-cluster --services hermes-staging-api
+      
+      - name: Health Check
+        run: |
+          curl -f https://hermes-staging.bravo-zero.io/health || exit 1
 
+  # ==========================================================================
+  # Deploy to Production
+  # ==========================================================================
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [deploy-staging]
-    if: github.event.inputs.environment == 'production'
-    environment: production
+    needs: [integration, build]
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment:
+      name: production
+      url: https://hermes.bravo-zero.io
     
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.CLUSTER_REGION }}
-
-      - name: Configure kubectl
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.6.0'
+      
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+      
+      - name: Terraform Plan
+        working-directory: terraform
         run: |
-          aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.CLUSTER_REGION }}
-
-      - name: Deploy to production
+          terraform plan \
+            -var-file=environments/production.tfvars \
+            -var="image_tag=${{ github.sha }}" \
+            -out=tfplan
+      
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve tfplan
+      
+      - name: Run Database Migrations
         run: |
-          # Update image tags
-          kubectl set image deployment/hermes-api \
-            api=ghcr.io/${{ github.repository }}:${{ github.sha }} \
-            -n hermes
-          
-          kubectl set image deployment/hermes-web \
-            web=ghcr.io/${{ github.repository }}-web:${{ github.sha }} \
-            -n hermes
-          
-          # Wait for rollout
-          kubectl rollout status deployment/hermes-api -n hermes --timeout=300s
-          kubectl rollout status deployment/hermes-web -n hermes --timeout=300s
-
-      - name: Verify deployment
+          aws ecs run-task \
+            --cluster hermes-production-cluster \
+            --task-definition hermes-production-api \
+            --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx],securityGroups=[sg-xxx]}" \
+            --overrides '{"containerOverrides":[{"name":"api","command":["alembic","upgrade","head"]}]}'
+      
+      - name: Deploy ECS Services (Rolling)
         run: |
-          kubectl get pods -n hermes
+          # Deploy API with rolling update
+          aws ecs update-service \
+            --cluster hermes-production-cluster \
+            --service hermes-production-api \
+            --force-new-deployment \
+            --deployment-configuration "maximumPercent=150,minimumHealthyPercent=100"
           
-          # Health check
-          curl -f https://hermes.bravozero.ai/health || exit 1
+          # Wait for API stability
+          aws ecs wait services-stable --cluster hermes-production-cluster --services hermes-production-api
           
-          echo "Production deployment successful!"
-
-      - name: Notify Beeper
+          # Deploy gRPC and Agent
+          aws ecs update-service --cluster hermes-production-cluster --service hermes-production-grpc --force-new-deployment
+          aws ecs update-service --cluster hermes-production-cluster --service hermes-production-agent --force-new-deployment
+      
+      - name: Health Check
+        run: |
+          for i in {1..10}; do
+            if curl -f https://hermes.bravo-zero.io/health; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Waiting for service..."
+            sleep 10
+          done
+          echo "Health check failed"
+          exit 1
+      
+      - name: Send Deployment Notification
         if: success()
         run: |
-          curl -X POST "${{ secrets.BEEPER_WEBHOOK_URL }}" \
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
             -d '{
-              "title": "Hermes Deployed to Production",
-              "body": "Version ${{ github.sha }} deployed successfully",
-              "priority": "normal"
+              "text": "🚀 Hermes deployed to production",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Hermes* deployed to production\nCommit: `${{ github.sha }}`\nBy: ${{ github.actor }}"
+                  }
+                }
+              ]
             }'
+
+  # ==========================================================================
+  # Rollback (Manual)
+  # ==========================================================================
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && failure()
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Rollback ECS Services
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          
+          # Get previous task definition
+          PREV_TASK=$(aws ecs describe-services \
+            --cluster hermes-${ENV}-cluster \
+            --services hermes-${ENV}-api \
+            --query 'services[0].deployments[1].taskDefinition' \
+            --output text)
+          
+          # Update service to previous task definition
+          aws ecs update-service \
+            --cluster hermes-${ENV}-cluster \
+            --service hermes-${ENV}-api \
+            --task-definition $PREV_TASK
+      
+      - name: Send Rollback Notification
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"text": "⚠️ Hermes rolled back in ${{ github.event.inputs.environment }}"}'

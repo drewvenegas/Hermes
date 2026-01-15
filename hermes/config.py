@@ -33,8 +33,13 @@ class Settings(BaseSettings):
     # Server
     host: str = "0.0.0.0"
     port: int = 8080
-    grpc_port: int = 50051
     workers: int = 4
+    
+    # gRPC Server
+    grpc_enabled: bool = True
+    grpc_host: str = "localhost"
+    grpc_port: int = 50051
+    grpc_workers: int = 10
 
     # Database
     database_url: str = Field(

@@ -1,0 +1,194 @@
+{
+  "name": "hermes-logos",
+  "displayName": "Hermes - Prompt Engineering",
+  "description": "Hermes integration for Logos IDE - manage and benchmark prompts",
+  "version": "0.1.0",
+  "publisher": "bravozero",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onLanguage:yaml",
+    "workspaceContains:**/*.prompt.md"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "hermes.listPrompts",
+        "title": "Hermes: List Prompts",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "hermes.pullPrompt",
+        "title": "Hermes: Pull Prompt",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "hermes.pushPrompt",
+        "title": "Hermes: Push Prompt",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "hermes.benchmark",
+        "title": "Hermes: Run Benchmark",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "hermes.critique",
+        "title": "Hermes: Get Suggestions",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "hermes.versionHistory",
+        "title": "Hermes: Show Version History",
+        "icon": "$(history)"
+      },
+      {
+        "command": "hermes.diff",
+        "title": "Hermes: Compare Versions",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "hermes.qualityGate",
+        "title": "Hermes: Check Quality Gate",
+        "icon": "$(shield)"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "hermes.pushPrompt",
+          "when": "resourceExtname == .md",
+          "group": "hermes@1"
+        },
+        {
+          "command": "hermes.benchmark",
+          "when": "resourceExtname == .md",
+          "group": "hermes@2"
+        },
+        {
+          "command": "hermes.critique",
+          "when": "resourceExtname == .md",
+          "group": "hermes@3"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "hermes.pushPrompt",
+          "when": "resourceExtname == .md",
+          "group": "hermes@1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "hermes.listPrompts",
+          "when": "view == hermesPrompts",
+          "group": "navigation"
+        }
+      ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "hermesPrompts",
+          "name": "Hermes Prompts"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "hermes",
+          "title": "Hermes",
+          "icon": "media/hermes.svg"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Hermes",
+      "properties": {
+        "hermes.serverUrl": {
+          "type": "string",
+          "default": "https://hermes.bravozero.ai",
+          "description": "Hermes API server URL"
+        },
+        "hermes.grpcUrl": {
+          "type": "string",
+          "default": "localhost:50051",
+          "description": "Hermes gRPC server URL"
+        },
+        "hermes.autoSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically save prompts to Hermes on save"
+        },
+        "hermes.autoBenchmark": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically run benchmark on save"
+        },
+        "hermes.showInlineSuggestions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline improvement suggestions"
+        },
+        "hermes.defaultSuite": {
+          "type": "string",
+          "default": "default",
+          "description": "Default benchmark suite"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "hermes.pushPrompt",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
+        "when": "editorTextFocus && resourceExtname == .md"
+      },
+      {
+        "command": "hermes.benchmark",
+        "key": "ctrl+shift+b",
+        "mac": "cmd+shift+b",
+        "when": "editorTextFocus && resourceExtname == .md"
+      }
+    ],
+    "languages": [
+      {
+        "id": "hermes-prompt",
+        "aliases": ["Hermes Prompt", "prompt"],
+        "extensions": [".prompt.md", ".prompt"],
+        "configuration": "./language-configuration.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.9.0",
+    "@grpc/proto-loader": "^0.7.0",
+    "axios": "^1.6.0"
+  }
+}

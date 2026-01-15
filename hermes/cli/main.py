@@ -23,6 +23,10 @@ app = typer.Typer(
 )
 console = Console()
 
+# Add gRPC subcommands
+from hermes.grpc.cli import app as grpc_app
+app.add_typer(grpc_app, name="grpc", help="gRPC server commands")
+
 # Config directory
 CONFIG_DIR = Path.home() / ".hermes"
 CONFIG_FILE = CONFIG_DIR / "config.json"

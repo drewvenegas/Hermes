@@ -11,6 +11,9 @@ from hermes.models.benchmark import BenchmarkResult
 from hermes.models.benchmark_suite import BenchmarkSuite, BenchmarkTestCase
 from hermes.models.template import PromptTemplate, TemplateVersion
 from hermes.models.collaboration import Activity, ActivityType, Comment, Review, ReviewRequest, ReviewStatus
+from hermes.models.audit import AuditLog
+from hermes.models.api_key import APIKey, STANDARD_SCOPES
+from hermes.models.experiment import Experiment, ExperimentEvent, ExperimentStatus
 
 __all__ = [
     "Base",
@@ -29,4 +32,10 @@ __all__ = [
     "Review",
     "ReviewRequest",
     "ReviewStatus",
+    "AuditLog",
+    "APIKey",
+    "STANDARD_SCOPES",
+    "Experiment",
+    "ExperimentEvent",
+    "ExperimentStatus",
 ]

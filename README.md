@@ -9,12 +9,20 @@ Hermes is the centralized prompt engineering platform for the Bravo Zero ecosyst
 ## Features
 
 - **Prompt Management**: CRUD operations for all prompt types (agent, template, tool, MCP)
-- **Version Control**: Semantic versioning with full history and rollback
-- **Benchmarking**: Automated quality assessment via ATE integration
+- **Version Control**: Semantic versioning with full history, diff engine, and rollback
+- **Benchmarking**: Automated quality assessment via ATE integration with dimensional scoring
+- **Quality Gates**: Automated quality checks before deployment (score thresholds, regression detection)
+- **A/B Testing**: Statistical experimentation framework for prompt optimization
 - **Self-Critique**: AI-powered improvement suggestions via ASRBS
-- **Access Control**: Multi-level RBAC integrated with PERSONA
-- **Search**: Full-text search with Elasticsearch
+- **Autonomous Agent**: Continuous improvement via aria.hermes autonomous agent
+- **Access Control**: Multi-level RBAC integrated with PERSONA, API key management
+- **Search**: Full-text search with Elasticsearch/OpenSearch
 - **Real-time Sync**: WebSocket-based live updates
+- **Nursery Sync**: Bidirectional sync with ARIA agent prompts repository
+- **IDE Integration**: Logos VS Code extension for in-editor prompt management
+- **Hydra SDK**: TypeScript SDK with React hooks for UI integration
+- **Audit Logging**: Complete audit trail for all operations
+- **Import/Export**: Bulk import/export of prompts (JSON, CSV, Markdown, ZIP)
 
 ---
 
@@ -105,30 +113,29 @@ Hermes is the centralized prompt engineering platform for the Bravo Zero ecosyst
 
 ## API Reference
 
-### Prompts
+Full API documentation: [cognitive-architecture-docs/systems/hermes/api-reference.md](../cognitive-architecture-docs/systems/hermes/api-reference.md)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/prompts` | List all prompts |
-| POST | `/api/v1/prompts` | Create a new prompt |
-| GET | `/api/v1/prompts/{id}` | Get prompt by ID |
-| PUT | `/api/v1/prompts/{id}` | Update prompt |
-| DELETE | `/api/v1/prompts/{id}` | Delete prompt |
+### Core APIs
 
-### Versions
+| Category | Endpoints |
+|----------|-----------|
+| **Prompts** | CRUD, search, import/export |
+| **Versions** | History, diff, rollback |
+| **Benchmarks** | Run, results, trends |
+| **Quality Gates** | Evaluate, status |
+| **Experiments** | A/B testing |
+| **Agent** | Autonomous improvement |
+| **Audit** | Logs, history |
+| **API Keys** | Create, revoke, rotate |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/prompts/{id}/versions` | List versions |
-| GET | `/api/v1/prompts/{id}/versions/{version}` | Get specific version |
-| POST | `/api/v1/prompts/{id}/rollback` | Rollback to version |
+### gRPC API
 
-### Benchmarks
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/prompts/{id}/benchmark` | Run benchmark |
-| GET | `/api/v1/prompts/{id}/benchmarks` | List benchmark results |
+Available on port 50051 with services for:
+- `PromptService` - Prompt CRUD operations
+- `VersionService` - Version control
+- `BenchmarkService` - Benchmark execution
+- `DeploymentService` - Multi-app deployment
+- `NurseryService` - Sync with ARIA Nursery
 
 ---
 
@@ -186,9 +193,19 @@ helm install hermes ./helm/hermes -n hermes
 
 ## Related Documentation
 
+### In cognitive-architecture-docs/systems/hermes/
+
+- [Quick Start Guide](../cognitive-architecture-docs/systems/hermes/quick-start.md) - Get up and running in 5 minutes
+- [Architecture](../cognitive-architecture-docs/systems/hermes/architecture.md) - System design and components
+- [API Reference](../cognitive-architecture-docs/systems/hermes/api-reference.md) - Complete REST and gRPC API docs
+- [Integration Guide](../cognitive-architecture-docs/systems/hermes/integration-guide.md) - Connecting with other services
+- [Deployment](../cognitive-architecture-docs/systems/hermes/deployment.md) - AWS ECS deployment guide
+
+### Platform Docs
+
 - [Platform Architecture](https://github.com/DeepCreative/CognitiveArchitecture/blob/main/architecture/hermes-platform.md)
-- [Integration Guide](https://github.com/DeepCreative/CognitiveArchitecture/blob/main/architecture/hermes-integration.md)
 - [Product Roadmap](https://github.com/DeepCreative/CognitiveArchitecture/blob/main/research/hermes-product-roadmap-2026.md)
+- [Vision Document](https://github.com/DeepCreative/CognitiveArchitecture/blob/main/vision/hermes-vision.md)
 
 ---
 
