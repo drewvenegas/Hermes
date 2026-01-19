@@ -68,7 +68,7 @@ jobs:
         run: pytest --cov=hermes --cov-report=xml
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: coverage.xml
           flags: backend
